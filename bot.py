@@ -1,37 +1,54 @@
 import os
-import yt_dlp
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import telebot
+from yt_dlp import YoutubeDL
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('হ্যালো! আমাকে ফেসবুক, ইনস্টাগ্রাম, টিকটক বা ইউটিউবের ভিডিও লিংক দিন।')
+# তোমার বটের টোকেন
+API_TOKEN = '8702844610:AAGPtr8EGNHq7Fzs-mYynUAsYKpdSRYwaZk'
+bot = telebot.TeleBot(API_TOKEN)
 
-async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
-    
-    if "http" in url:
-        await update.message.reply_text('ভিডিও ডাউনলোড হচ্ছে, একটু অপেক্ষা করুন... ⏳')
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'downloaded_video.mp4'
-        }
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    url = message.text
+    if "youtube.com" in url or "youtu.be" in url or "instagram.com" in url:
+        bot.reply_to(message, "ভিডিওটি প্রসেস হচ্ছে, দয়া করে অপেক্ষা করুন... ⏳")
+        
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # ভিডিও ডাউনলোড সেটিংস (দ্রুত প্রসেসিংয়ের জন্য 480p রেজোলিউশন)
+            ydl_opts = {
+                'format': 'best[height<=480]', 
+                'outtmpl': 'video.mp4'
+            }
+            with YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            with open('downloaded_video.mp4', 'rb') as video_file:
-                await update.message.reply_video(video=video_file)
-            os.remove('downloaded_video.mp4')
+
+            # ভিডিও লোড করা
+            video = VideoFileClip("video.mp4")
+            
+            # লোগো সেটআপ (ভিডিওর প্রস্থের ১৫% সাইজ এবং ওপরের ডান কোণায় পজিশন)
+            logo = (ImageClip("logo.png")
+                    .set_duration(video.duration)
+                    .resize(width=video.w * 0.15) 
+                    .margin(right=10, top=10, opacity=0) 
+                    .set_pos(("right", "top")))
+
+            # ভিডিও এবং লোগো যুক্ত করা
+            final_video = CompositeVideoClip([video, logo])
+            
+            # নতুন ভিডিও ফাইল তৈরি (রেন্ডারিং)
+            final_video.write_videofile("output.mp4", codec="libx264", audio_codec="aac")
+
+            # ভিডিও পাঠানো
+            with open("output.mp4", 'rb') as v:
+                bot.send_video(message.chat.id, v)
+
+            # ফাইলগুলো মুছে ফেলা (যাতে মেমোরি ফুল না হয়)
+            video.close()
+            final_video.close()
+            os.remove("video.mp4")
+            os.remove("output.mp4")
+
         except Exception as e:
-            await update.message.reply_text('দুঃখিত, এই লিংক থেকে ভিডিওটি ডাউনলোড করা সম্ভব হচ্ছে না।')
-    else:
-        await update.message.reply_text('দয়া করে একটি সঠিক ভিডিও লিংক দিন।')
+            bot.reply_to(message, f"দুঃখিত, কোনো সমস্যা হয়েছে: {e}")
 
-def main():
-    app = Application.builder().token("8702844610:AAGPtr8EGNHq7Fzs-mYynUAsYKpdSRYwaZk").build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
-    print("বট চালু হয়েছে...")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
+bot.polling()
