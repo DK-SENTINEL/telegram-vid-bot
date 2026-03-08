@@ -42,7 +42,7 @@ def handle_message(message):
                     
                     # স্পেশাল ক্যারেক্টার ক্লিন করা
                     safe_title = title.replace('_', ' ').replace('*', ' ').replace('[', ' ').replace(']', ' ')
-                    caption_text = f"🎬 Title: {safe_title}\n\n📥 Downloaded by: @cyber24_uca_offcial"
+                    caption_text = f"🎬 Title: {safe_title}\n\n📥 Downloaded by: @cyber24_uca_offcial  Admin @ucasentinel"
                     
                     if os.path.exists(file_name):
                         with open(file_name, 'rb') as v:
